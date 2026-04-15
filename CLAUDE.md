@@ -73,6 +73,37 @@ Chunk 1~3 (Core)은 **순차 진행**. Chunk 4~8 (Features)는 **병렬 가능**
 
 Spec 원본: `DiskSense-Design-Spec.docx`
 
+## Build / Deploy / Test Loop
+
+코드 수정 후 반영 표준 파이프라인:
+
+```bash
+# 1) Swift 파일 추가/삭제한 경우에만 프로젝트 재생성
+cd /Users/taeyoung/personal-project/disk-sense
+USER=$(id -un) xcodegen generate
+
+# 2) 빌드
+xcodebuild -project DiskSense.xcodeproj -scheme DiskSense \
+  -configuration Debug build 2>&1 | grep -E "(error:|warning:|BUILD)" | tail -10
+
+# 3) /Applications 로 재배포 + stable identifier 서명 (FDA 권한 유지 핵심)
+pkill -x DiskSense 2>/dev/null
+rm -rf /Applications/DiskSense.app
+cp -R ~/Library/Developer/Xcode/DerivedData/DiskSense-*/Build/Products/Debug/DiskSense.app /Applications/
+codesign --force --deep --sign - --identifier com.yourname.DiskSense /Applications/DiskSense.app
+
+# 4) 실행
+open /Applications/DiskSense.app
+```
+
+**중요**: `codesign --identifier com.yourname.DiskSense` 가 누락되면 재빌드마다 TCC가 다른 앱으로 인식 → Full Disk Access / Documents / Downloads 권한이 리셋되고 수많은 프롬프트가 다시 뜸.
+
+## 메모리 / 세션 연속성
+
+- `.claude/memory/learnings.md` — 세션 간 학습/삽질 기록. **새 세션 시작 시 이 파일을 먼저 읽고 작업**.
+- `.claude/settings.local.json` — Stop / PreCompact 훅 등록.
+- 이전 세션에서 발견된 함정 (enum 플래그, 취소 동기화, gh 다중 계정 등)은 learnings.md 에 누적되어 있음.
+
 ## UI 구조
 
 Sidebar: 📊 대시보드 / 🤖 AI 분석 / 🔧 개발환경 / 📋 히스토리 / ⚙️ 설정

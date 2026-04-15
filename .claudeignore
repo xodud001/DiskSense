@@ -1,0 +1,24 @@
+# Build output (not useful as context)
+DerivedData/
+build/
+.build/
+
+# Generated Xcode project (source of truth is project.yml)
+DiskSense.xcodeproj/
+*.xcworkspace/
+
+# Binaries / non-text sources
+*.docx
+*.pdf
+*.xcassets/
+
+# macOS metadata
+.DS_Store
+
+# Git internals
+.git/
+
+# Swift Package Manager
+.swiftpm/
+Packages/
+Package.resolved
