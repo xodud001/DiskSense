@@ -1,0 +1,38 @@
+name: DiskSense
+options:
+  bundleIdPrefix: com.yourname
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    GENERATE_INFOPLIST_FILE: YES
+    PRODUCT_BUNDLE_IDENTIFIER: com.yourname.DiskSense
+    INFOPLIST_KEY_NSFullDiskAccessUsageDescription: "DiskSense는 디스크 전체를 분석하여 저장공간을 정리하기 위해 Full Disk Access 권한이 필요합니다."
+    CODE_SIGN_ENTITLEMENTS: DiskSense/DiskSense.entitlements
+    ENABLE_HARDENED_RUNTIME: YES
+    CODE_SIGN_STYLE: Automatic
+targets:
+  DiskSense:
+    type: application
+    platform: macOS
+    sources:
+      - path: DiskSense
+    info:
+      path: DiskSense/Info.plist
+      properties:
+        NSFullDiskAccessUsageDescription: "디스크 전체를 스캔하여 저장공간 사용 현황을 분석합니다."
+        NSDocumentsFolderUsageDescription: "문서 폴더 크기를 집계하기 위해 읽기 권한이 필요합니다."
+        NSDesktopFolderUsageDescription: "데스크톱 폴더 크기를 집계하기 위해 읽기 권한이 필요합니다."
+        NSDownloadsFolderUsageDescription: "다운로드 폴더 크기를 집계하기 위해 읽기 권한이 필요합니다."
+        NSRemovableVolumesUsageDescription: "외장 볼륨의 저장공간을 분석합니다."
+        NSNetworkVolumesUsageDescription: "네트워크 볼륨의 저장공간을 분석합니다."
+        LSMinimumSystemVersion: "14.0"
+        LSUIElement: false
+    entitlements:
+      path: DiskSense/DiskSense.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
+        com.apple.security.automation.apple-events: true
