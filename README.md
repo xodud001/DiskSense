@@ -182,4 +182,4 @@ Issues and PRs welcome. For major changes, open an issue first to discuss.
 
 ## License
 
-MIT © 2025 김태영
+MIT © 2026 김태영
