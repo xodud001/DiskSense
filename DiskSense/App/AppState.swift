@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import CoreServices
+import AppKit
 
 enum SidebarTab: String, CaseIterable, Identifiable {
     case dashboard, analysis, history, settings
@@ -45,8 +46,13 @@ final class AppState {
     var selectedTab: SidebarTab = .dashboard
     var pendingIncrementalPaths: Set<String> = []
 
+    /// 스냅샷 저장 콜백. DiskSenseApp에서 modelContext 주입.
+    /// (totalCapacity, totalUsed, kind, itemCount?, duration?, topCategories?)
+    var onSnapshot: ((Int64, Int64, String, Int?, Double?, String?) -> Void)?
+
     private let scanner = DiskScanner()
     private var rescanTimer: Timer?
+    private var snapshotTimer: Timer?
     private var fsWatcher: FSEventsWatcher?
     private var debouncedRescanTask: Task<Void, Never>?
 
@@ -61,6 +67,44 @@ final class AppState {
         }
         scheduleBackgroundRescan()
         startFSEventsIfPossible()
+        observeAppActivation()
+        startPeriodicSnapshot()
+    }
+
+    /// 3분마다 VolumeInfo API로 가벼운 사용량 스냅샷을 기록.
+    @MainActor
+    private func startPeriodicSnapshot() {
+        snapshotTimer?.invalidate()
+        // 앱 시작 직후 첫 스냅샷
+        recordPeriodicSnapshot()
+        snapshotTimer = Timer.scheduledTimer(withTimeInterval: 180, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.recordPeriodicSnapshot()
+            }
+        }
+    }
+
+    @MainActor
+    private func recordPeriodicSnapshot() {
+        guard let usage = VolumeInfo.startupVolume() else { return }
+        self.volumeUsage = usage
+        onSnapshot?(usage.total, usage.used, "periodic", nil, nil, nil)
+    }
+
+    /// 앱이 포그라운드로 돌아올 때 FDA 상태와 볼륨 사용량을 재체크.
+    @MainActor
+    private func observeAppActivation() {
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.hasFullDiskAccess = PermissionChecker.hasFullDiskAccess()
+                self.volumeUsage = VolumeInfo.startupVolume()
+            }
+        }
     }
 
     @MainActor
@@ -165,6 +209,15 @@ final class AppState {
             self.liveElapsed = totalElapsed
             print(String(format: "[DiskScanner] full scan (incl. system) %.2fs", totalElapsed))
             ScanCache.save(merged)
+            // 스캔 완료 스냅샷 저장 (메타데이터 포함)
+            let capacity = self.volumeUsage?.total ?? merged.totalCapacity
+            let used = self.volumeUsage?.used ?? merged.totalUsed
+            let topCats = merged.breakdown
+                .sorted { $0.value > $1.value }
+                .prefix(5)
+                .map { "\($0.key.rawValue):\(ByteFormatter.string($0.value))" }
+                .joined(separator: ",")
+            onSnapshot?(capacity, used, "scan", merged.items.count, totalElapsed, topCats)
         } catch ScanError.cancelled {
             self.liveCurrentPath = "취소됨"
         } catch {

@@ -3,15 +3,29 @@ import AppKit
 
 enum PermissionChecker {
     /// Full Disk Access 권한 상태를 TCC 보호 경로 읽기 시도로 추정한다.
-    /// 샌드박스 환경이 아닐 때만 의미 있음.
+    /// 여러 TCC 보호 경로를 프로빙하여 하나라도 읽기 가능하면 FDA 활성으로 판단.
     static func hasFullDiskAccess() -> Bool {
+        let home = NSHomeDirectory() as NSString
         let probePaths = [
             "/Library/Application Support/com.apple.TCC/TCC.db",
-            (NSHomeDirectory() as NSString).appendingPathComponent("Library/Safari/Bookmarks.plist"),
+            home.appendingPathComponent("Library/Safari/Bookmarks.plist"),
+            home.appendingPathComponent("Library/Safari"),
+            home.appendingPathComponent("Library/Mail"),
+            home.appendingPathComponent("Library/Messages"),
+            home.appendingPathComponent("Library/Cookies"),
+            home.appendingPathComponent("Library/HomeKit"),
         ]
         let fm = FileManager.default
-        for path in probePaths where fm.fileExists(atPath: path) {
-            if fm.isReadableFile(atPath: path) { return true }
+        for path in probePaths {
+            // 디렉토리인 경우 내용 열거 가능 여부로 판단
+            var isDir: ObjCBool = false
+            if fm.fileExists(atPath: path, isDirectory: &isDir) {
+                if isDir.boolValue {
+                    if (try? fm.contentsOfDirectory(atPath: path)) != nil { return true }
+                } else {
+                    if fm.isReadableFile(atPath: path) { return true }
+                }
+            }
         }
         return false
     }

@@ -7,12 +7,11 @@ struct DiskSenseApp: App {
 
     var body: some Scene {
         WindowGroup(id: "main") {
-            ContentView()
-                .environment(appState)
+            SnapshotWiringView(appState: appState)
                 .frame(minWidth: 1100, minHeight: 680)
                 .task { appState.bootstrap() }
         }
-        .modelContainer(for: CleanupHistory.self)
+        .modelContainer(for: [CleanupHistory.self, StorageSnapshot.self])
         .windowResizability(.contentMinSize)
 
         MenuBarExtra {
@@ -21,6 +20,31 @@ struct DiskSenseApp: App {
             MenuBarLabel(appState: appState)
         }
         .menuBarExtraStyle(.window)
+    }
+}
+
+/// modelContext를 AppState.onScanCompleted 콜백에 연결하는 래퍼 뷰.
+private struct SnapshotWiringView: View {
+    let appState: AppState
+    @Environment(\.modelContext) private var modelContext
+
+    var body: some View {
+        ContentView()
+            .environment(appState)
+            .onAppear {
+                appState.onSnapshot = { [modelContext] capacity, used, kind, itemCount, duration, topCats in
+                    let snapshot = StorageSnapshot(
+                        totalCapacity: capacity,
+                        totalUsed: used,
+                        kind: kind,
+                        scanItemCount: itemCount,
+                        scanDuration: duration,
+                        scanTopCategories: topCats
+                    )
+                    modelContext.insert(snapshot)
+                    try? modelContext.save()
+                }
+            }
     }
 }
 

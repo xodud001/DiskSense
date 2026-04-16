@@ -49,6 +49,7 @@ struct DashboardView: View {
                 if hasData {
                     storageCard
                     coverageFooter
+                    StorageTrendChart()
                     categoriesSection
                     topItemsSection
                 } else {
